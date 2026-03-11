@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Kesir Atölyesi </title>
+
+<style>
+
+body{
+margin:0;
+font-family:"Segoe UI",Arial;
+background:linear-gradient(180deg,#60a5fa,#2563eb);
+text-align:center;
+}
+
+header{
+font-size:34px;
+font-weight:bold;
+padding:20px;
+color:white;
+}
+
+.task{
+font-size:22px;
+font-weight:bold;
+color:white;
+margin-bottom:10px;
+}
+
+.stats{
+color:white;
+margin-bottom:15px;
+}
+
+.container{
+display:flex;
+justify-content:center;
+gap:30px;
+flex-wrap:wrap;
+}
+
+.panel{
+background:white;
+border-radius:20px;
+padding:20px;
+width:320px;
+box-shadow:0 10px 25px rgba(0,0,0,.25);
+}
+
+.item{
+display:inline-block;
+padding:12px 20px;
+margin:6px;
+border-radius:12px;
+background:#f59e0b;
+color:white;
+font-weight:bold;
+cursor:grab;
+font-size:18px;
+}
+
+.dropZone{
+border:3px dashed #94a3b8;
+border-radius:14px;
+padding:10px;
+margin-top:10px;
+}
+
+canvas{
+background:#f1f5f9;
+border-radius:10px;
+}
+
+button{
+margin-top:10px;
+padding:10px 18px;
+border:none;
+border-radius:10px;
+background:#10b981;
+color:white;
+font-size:16px;
+font-weight:bold;
+cursor:pointer;
+}
+
+.popup{
+position:fixed;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+background:white;
+font-size:30px;
+font-weight:bold;
+padding:25px 40px;
+border-radius:20px;
+box-shadow:0 10px 40px rgba(0,0,0,.4);
+display:none;
+z-index:1000;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>🍕 Kesir Atölyesi 🍎</header>
+
+<div class="task" id="taskText"></div>
+
+<div class="stats">
+⭐ Puan: <span id="score">0</span> | 🧩 Soru: <span id="qnum">1</span> | 🏆 Seviye: <span id="level">1</span>
+</div>
+
+<div class="container">
+
+<div class="panel">
+
+<h3>Parçalar</h3>
+
+<div class="item" draggable="true" data-value="0.25">1/4</div>
+<div class="item" draggable="true" data-value="0.5">1/2</div>
+<div class="item" draggable="true" data-value="1">1</div>
+
+</div>
+
+<div class="panel">
+
+<h3>Çalışma Alanı</h3>
+
+<div class="dropZone" id="dropZone">
+<canvas id="board" width="300" height="240"></canvas>
+</div>
+
+<button onclick="checkAnswer()">Onayla</button>
+<button onclick="resetBoard()">Temizle</button>
+
+</div>
+
+</div>
+
+<div id="popup" class="popup"></div>
+
+<script>
+
+const canvas=document.getElementById("board")
+const ctx=canvas.getContext("2d")
+
+let pieces=[]
+let score=0
+let qnum=1
+let level=1
+let currentTask
+
+const popup=document.getElementById("popup")
+
+const slices=document.querySelectorAll(".item")
+const drop=document.getElementById("dropZone")
+
+const correctSound=new Audio("data:audio/wav;base64,UklGRlIAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=")
+
+slices.forEach(s=>{
+s.addEventListener("dragstart",e=>{
+e.dataTransfer.setData("value",s.dataset.value)
+})
+})
+
+drop.addEventListener("dragover",e=>e.preventDefault())
+
+drop.addEventListener("drop",e=>{
+e.preventDefault()
+let val=parseFloat(e.dataTransfer.getData("value"))
+pieces.push(val)
+drawBoard()
+})
+
+function showPopup(text,color){
+
+popup.innerText=text
+popup.style.border="6px solid "+color
+popup.style.display="block"
+
+setTimeout(()=>{
+popup.style.display="none"
+},1200)
+
+}
+
+function generateTask(){
+
+const objects=[
+{type:"pizza",name:"pizza"},
+{type:"apple",name:"elma"},
+{type:"toy",name:"oyuncak"}
+]
+
+let obj=objects[Math.floor(Math.random()*objects.length)]
+
+let whole=Math.floor(Math.random()*6)
+let half=Math.random()<0.5?0.5:0
+let quarter=[0,0.25,0.75][Math.floor(Math.random()*3)]
+
+let value=whole+half+quarter
+
+if(value===0)value=0.25
+
+let text=""
+
+if(whole>0) text+=whole+" bütün "
+if(half>0) text+="1 yarım "
+if(quarter===0.25) text+="1 çeyrek "
+if(quarter===0.75) text+="3 çeyrek "
+
+text+=obj.name+" hazırla."
+
+return{
+t:text,
+v:value,
+type:obj.type
+}
+
+}
+
+function drawPizzaSlice(x,y,r,start,end){
+
+ctx.beginPath()
+ctx.moveTo(x,y)
+ctx.arc(x,y,r,start,end)
+ctx.closePath()
+
+ctx.fillStyle="#f59e0b"
+ctx.fill()
+
+ctx.strokeStyle="#7c2d12"
+ctx.lineWidth=2
+ctx.stroke()
+
+let mid=(start+end)/2
+
+ctx.beginPath()
+ctx.arc(x+Math.cos(mid)*r*0.5,y+Math.sin(mid)*r*0.5,4,0,Math.PI*2)
+ctx.fillStyle="#b91c1c"
+ctx.fill()
+
+}
+
+function drawAppleSlice(x,y,r,start,end){
+
+ctx.beginPath()
+ctx.moveTo(x,y)
+ctx.arc(x,y,r,start,end)
+ctx.closePath()
+
+ctx.fillStyle="#ef4444"
+ctx.fill()
+
+ctx.strokeStyle="#7f1d1d"
+ctx.lineWidth=2
+ctx.stroke()
+
+}
+
+function drawToy(x,y){
+
+ctx.fillStyle="#3b82f6"
+ctx.fillRect(x-20,y-15,40,30)
+
+ctx.fillStyle="#60a5fa"
+
+for(let i=-10;i<=10;i+=10){
+
+ctx.beginPath()
+ctx.arc(x+i,y-15,4,0,Math.PI*2)
+ctx.fill()
+
+}
+
+}
+
+function drawBoard(){
+
+ctx.clearRect(0,0,canvas.width,canvas.height)
+
+let groups=[]
+let cur=[]
+let sum=0
+
+pieces.forEach(p=>{
+
+if(sum+p<=1){
+cur.push(p)
+sum+=p
+}else{
+groups.push(cur)
+cur=[p]
+sum=p
+}
+
+})
+
+if(cur.length>0)groups.push(cur)
+
+groups.forEach((g,i)=>{
+
+let col=i%3
+let row=Math.floor(i/3)
+
+let x=50+col*90
+let y=50+row*90
+
+let angle=0
+
+g.forEach(v=>{
+
+let size=v*2*Math.PI
+
+if(currentTask.type==="pizza")
+drawPizzaSlice(x,y,30,angle,angle+size)
+
+else if(currentTask.type==="apple")
+drawAppleSlice(x,y,30,angle,angle+size)
+
+else
+drawToy(x,y)
+
+angle+=size
+
+})
+
+})
+
+}
+
+function totalValue(){
+return pieces.reduce((a,b)=>a+b,0)
+}
+
+function checkAnswer(){
+
+let total=totalValue()
+
+if(Math.abs(total-currentTask.v)<0.01){
+
+score+=10
+qnum++
+
+if(score%50===0) level++
+
+correctSound.play()
+
+showPopup("🎉 Doğru!", "#22c55e")
+
+document.getElementById("score").innerText=score
+document.getElementById("qnum").innerText=qnum
+document.getElementById("level").innerText=level
+
+setTimeout(()=>{
+newTask()
+},1200)
+
+}else{
+
+showPopup("❌ Tekrar dene", "#ef4444")
+
+}
+
+}
+
+function resetBoard(){
+pieces=[]
+drawBoard()
+}
+
+function newTask(){
+currentTask=generateTask()
+document.getElementById("taskText").innerText=currentTask.t
+resetBoard()
+}
+
+newTask()
+
+</script>
+</body>
+</html>
